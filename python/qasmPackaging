@@ -1,0 +1,142 @@
+control_gate_names = ["CNOT", "CY", "CZ", "CH"] # a list of control gates for your convenience
+
+
+class Measured_Qubit():
+    def __init__(self, jsondata):
+        self.measure_block_uuid = jsondata["uuid"] # A UUID corresponding to the measure block.  Qubits can be identified by this value
+        self.operations = jsondata["operations"] # A list of Operation objects
+
+class Operation():
+    def __init__(self, jsondata):
+        self.name = jsondata["name"] # the operation name
+        self.number_qubits = jsondata["num_qubits"] # the number of qubits in the gate
+        self.parameter = jsondata["parameter"] # the angle of the gate
+        self.gate_uuid = jsondata["gate_uuid"] # the UUID of a two-qubit gate (ignore for 1-qubit gates)
+        self.gate_index = jsondata["is_control"] # which index this qubit is in the circuit
+
+
+
+class QasmOperation():
+    def __init__(self, name, parameter, qubits):
+        self.name = name # the name of the operation
+        self.parameter = parameter # the parameter of the operation
+        self.qubits = qubits # which qubit(s) are involved in the operation (in order) ["asdf", "qrsq"]
+
+class QasmCircuit():
+    def __init__(self, operations):
+        self.operations = operations
+
+
+def example(): #this function only really serves to give an example list of Measured Qubits to test the other function
+                            #define example operations dictionary: name, num, gate uuid,& control
+    do1q1 = {
+        "name":"X",
+        "num_qubits":1,
+        "parameter":24,
+        "gate_uuid":"null",
+        "is_control":0
+    }
+    do2q1 = {
+        "name":"CNOT",
+        "num_qubits":2,
+        "parameter":24,
+        "gate_uuid":"abcd",
+        "is_control":1
+    }
+    do2q2 = {
+        "name":"CNOT",
+        "num_qubits":2,
+        "parameter":24,
+        "gate_uuid":"abcd",
+        "is_control":0
+    }
+    do3q2 = {
+        "name":"CNOT",
+        "num_qubits":2,
+        "parameter":24,
+        "gate_uuid":"efgh",
+        "is_control":1
+    }
+    do3q3 = {
+        "name":"CNOT",
+        "num_qubits":2,
+        "parameter":24,
+        "gate_uuid":"efgh",
+        "is_control":0
+    }
+    o1q1 = Operation(do1q1)
+    o2q1 = Operation(do2q1)
+    o2q2 = Operation(do2q2)
+    o3q2 = Operation(do3q2)
+    o3q3 = Operation(do3q3)
+                            #define example measured qubits dictionary: uuids & list containing operation info
+    dq1 = {
+        "uuid":"asdf",
+        "operations":[o1q1,o2q1]
+    }
+    dq2 = {
+        "uuid":"qrsq",
+        "operations":[o3q2,o2q2]
+    }
+    dq3 = {
+        "uuid":"lmao",
+        "operations":[o3q3]
+    }
+    q1 = Measured_Qubit(dq1)
+    q2 = Measured_Qubit(dq2)
+    q3 = Measured_Qubit(dq3)
+
+    #collect all previous information (in dicts) in a list
+    listQBs = [q1,q2,q3]
+    repackager(listQBs)
+
+def repackager(listQBs): #The actual function that processes the data
+#1. use uuids to find how many operations there are by making a list of opuuids w/no repeats
+    opUuidList = []
+    for mqs in listQBs:
+        for ops in mqs.operations:
+            if ops.gate_uuid not in opUuidList:
+                opUuidList.append(ops.gate_uuid)
+#2. create list with quuid in order using opuuid and control ---> ["qrsq","asdf"]
+    opCount = 0
+    opList = {}
+    qcList = []
+    for opid in opUuidList:
+        opList[opid] = {}
+        name = ""
+        parameter = 0
+        for mqs in listQBs:
+            for ops in mqs.operations:
+                if ops.gate_uuid == opid:
+                    opList[opid][mqs.measure_block_uuid] = ops.gate_index
+                    name = ops.name
+                    parameter = ops.parameter
+        ckeys = opList[opid].keys()
+        invert = {}
+        sortvert = {}
+        reg = {}
+        order = []
+        for cy in ckeys:
+            invert[opList[opid][cy]] = cy
+            ikeys = list(invert.keys())
+            ikeys.sort()
+            sortvert = {}
+            for iy in ikeys:
+               sortvert[iy] = invert[iy]
+        skeys = sortvert.keys()
+        for sy in skeys:
+            reg[sortvert[sy]]=sy
+        rkeys = reg.keys()
+        for ry in rkeys:
+            order.append(ry)
+#3. create qops (name,opuuid,[qlist])
+        qcList.append(QasmOperation(name,parameter, order))
+
+#4. create qcircuit
+	circuit = QasmCircuit(qcList)
+    return circuit
+
+
+example()
+
+
